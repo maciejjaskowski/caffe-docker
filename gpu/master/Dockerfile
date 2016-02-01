@@ -33,8 +33,6 @@ RUN apt-get update && apt-get install -y \
   libatlas-base-dev \
   pkgconf \
   protobuf-compiler \
-  python-dev \
-  python-pip \
   unzip \
   wget
 
@@ -61,6 +59,7 @@ RUN cd /opt && wget https://google-glog.googlecode.com/files/glog-0.3.3.tar.gz &
   ./configure && \
   make && \
   make install
+
 
 # Workaround for error loading libglog:
 #   error while loading shared libraries: libglog.so.0: cannot open shared object file
@@ -97,16 +96,35 @@ ADD caffe-ld-so.conf /etc/ld.so.conf.d/
 # Run ldconfig again (not sure if needed)
 RUN ldconfig
 
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda2-3.19.0-Linux-x86_64.sh && \
+    /bin/bash /Miniconda2-3.19.0-Linux-x86_64.sh -b -p /opt/conda && \
+    rm Miniconda2-3.19.0-Linux-x86_64.sh && \
+    /opt/conda/bin/conda install --yes conda==3.19.0
+
+
+ENV PATH /opt/conda/bin:$PATH
+RUN conda install anaconda
+
 # Install python deps
 RUN cd /opt/caffe && \
   cat python/requirements.txt | xargs -L 1 sudo pip install
 
 # Numpy include path hack - github.com/BVLC/caffe/wiki/Ubuntu-14.04-VirtualBox-VM
-RUN ln -s /usr/include/python2.7/ /usr/local/include/python2.7 && \
-  ln -s /usr/local/lib/python2.7/dist-packages/numpy/core/include/numpy/ /usr/local/include/python2.7/numpy
+RUN ln -s /opt/conda/lib/python2.7/ /usr/local/include/python2.7 && \
+  ln -s /opt/conda/pkgs/numpy-1.10.1-py27_0/lib/python2.7/site-packages/numpy/ /usr/lib/python2.7/dist-packages/numpy         
+
+  
 
 # Build Caffe python bindings
 RUN cd /opt/caffe && make pycaffe
 
+RUN mkdir /root/.jupyter
+COPY jupyter_notebook_config.py /root/.jupyter/
+
+# Jupyter port
+EXPOSE 8888 
+
+#EXECUTE ["jupyter", "notebook"]
 
 
